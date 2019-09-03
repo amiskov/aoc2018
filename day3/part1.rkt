@@ -1,11 +1,29 @@
 #lang racket
-(require rackunit)
 
-;; How many square inches of fabric are within two or more claims?
+(struct point (x y) #:transparent)
+(struct line (begin end) #:transparent)
+(struct claim (id lpad tpad end-x end-y) #:transparent)
+
+(define (str->claim str)
+  (match-define (list id lpad tpad width height)
+    (map string->number
+         (regexp-split #rx" @ |,|: |x" str 1)))
+  (claim id lpad tpad (+ lpad width) (+ tpad height)))
 
 
-(struct point (x y))
-(struct claim (id points))
+(define (line-intersect? l1 l2)
+  (match-define (list left right)
+    (if (<= (line-begin l1) (line-begin l2))
+        (list l1 l2)
+        (list l2 l1)))
+  (> (line-end left) (line-begin right)))
+
+
+(define (claim-intersect? c1 c2)
+  (and (line-intersect? (line (claim-lpad c1) (claim-end-x c1))
+                        (line (claim-lpad c2) (claim-end-x c2)))
+       (line-intersect? (line (claim-tpad c1) (claim-end-y c1))
+                        (line (claim-tpad c2) (claim-end-y c2)))))
 
 
 ;; Fill x coordinates for pointers in a row
@@ -27,26 +45,27 @@
                 (make-set-of-points x (add1 y) end-x end-y))]))
 
 
-;; Produce set with all points in the claim area from the claim string
-(define (str->claim str)
-  (match-define (list id left top width height)
-    (map string->number
-         (regexp-split #rx" @ |,|: |x" str 1)))
-  (claim id (make-set-of-points
-             (+ 1 left)
-             (+ 1 top)
-             (+ left width)
-             (+ top height))))
+(define (claim->points c)
+  (make-set-of-points (+ 1 (claim-lpad c))
+                      (+ 1 (claim-tpad c))
+                      (claim-end-x c)
+                      (claim-end-y c)))
 
 
-;; Compares points from one claim againts others
+;; Claim, Claim -> Set of Points
+(define (get-intersection c1 c2)
+  (if (not (claim-intersect? c1 c2))
+      (set)
+      (set-intersect (claim->points c1) (claim->points c2))))
+  
 (define (find-intersects-for-claim cl cl-list acc)
   (if (empty? cl-list)
       acc
       (find-intersects-for-claim cl
                                  (rest cl-list)
-                                 (set-union acc (set-intersect (claim-points cl)
-                                                               (claim-points (first cl-list)))))))
+                                 (set-union acc
+                                            (get-intersection cl (first cl-list))))))
+
 
 (define (find-all-intersects data acc)
   (if (empty? data) acc
@@ -61,4 +80,4 @@
 
 (define start-time (current-seconds))
 (set-count (find-all-intersects data (set)))
-(quotient/remainder (- (current-seconds) start-time) 60)
+(- (current-seconds) start-time)
