@@ -115,8 +115,8 @@
         
 
 (define start-time (current-seconds))
-(find-non-overlapped data data)
-;(set-count (find-all-intersects data (set)))
+(find-non-overlapped data data) ; part 2
+;(set-count (find-all-intersects data (set))) ; part 1
 (display (- (current-seconds) start-time)) (display "s")
 
 
